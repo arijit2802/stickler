@@ -17,8 +17,7 @@ export default function OnboardingPageClient({ hasExistingProfile, existingProfi
   const [isSaving, setIsSaving] = useState(false);
 
   function handleChatComplete(_profileData: LearningProfileData) {
-    // Profile saved via /api/onboarding/confirm — redirect to dashboard (Feature 2)
-    router.push("/dashboard");
+    router.push("/discovery");
   }
 
   async function handleProfileUpdate(updated: LearningProfileData) {
@@ -30,7 +29,7 @@ export default function OnboardingPageClient({ hasExistingProfile, existingProfi
         body: JSON.stringify(updated),
       });
       if (!res.ok) throw new Error("Failed to update profile");
-      router.push("/dashboard");
+      router.push("/discovery");
     } finally {
       setIsSaving(false);
     }
