@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CalendarEntry, GetCalendarResponse } from "@/src/types/discovery";
 import { BlogSummaryCard } from "@/src/components/BlogSummaryCard";
+import { AddBlogModal } from "@/src/components/AddBlogModal";
 
 interface Props {
   initial: GetCalendarResponse;
@@ -46,6 +47,7 @@ export function ReadingCalendar({ initial }: Props) {
   const [entries, setEntries] = useState<CalendarEntry[]>(initial.entries);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   async function loadWeek(newMonday: string) {
     setLoading(true);
@@ -92,6 +94,18 @@ export function ReadingCalendar({ initial }: Props) {
 
   return (
     <div className="space-y-4">
+      {showAddModal && <AddBlogModal onClose={() => setShowAddModal(false)} />}
+
+      {/* Add article button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="text-sm text-green-600 hover:text-green-800 font-medium"
+        >
+          + Add article by URL
+        </button>
+      </div>
+
       {/* Week navigation */}
       <div className="flex items-center justify-between">
         <button

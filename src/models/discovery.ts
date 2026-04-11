@@ -183,6 +183,43 @@ export async function getCalendarWeek(
 }
 
 /**
+ * Check if a blog is already in a user's active calendar (status != skipped).
+ * Used to prevent duplicate manual imports.
+ */
+export async function isInCalendar(userId: string, blogId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: readingCalendar.id })
+    .from(readingCalendar)
+    .where(
+      and(
+        eq(readingCalendar.userId, userId),
+        eq(readingCalendar.blogId, blogId),
+        sql`${readingCalendar.status} != 'skipped'`
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Store or update the raw article content for a blog row.
+ */
+export async function updateBlogRawContent(blogId: string, rawContent: string): Promise<void> {
+  await db
+    .update(blogs)
+    .set({ rawContent })
+    .where(eq(blogs.id, blogId));
+}
+
+/**
+ * Fetch a blog row by URL. Returns null if not found.
+ */
+export async function getBlogByUrl(url: string): Promise<Blog | null> {
+  const [row] = await db.select().from(blogs).where(eq(blogs.url, url)).limit(1);
+  return row ?? null;
+}
+
+/**
  * Update the read/skipped status of a calendar entry.
  */
 export async function updateCalendarStatus(

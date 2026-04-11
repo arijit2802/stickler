@@ -21,6 +21,10 @@ export interface GetSummaryResponse {
   keywords: Keyword[];
   learningShort: string | null;
   audioUrl: string | null;
+  audioStatus: "none" | "generating" | "done" | "failed";
+  interviewAudioUrl: string | null;
+  interviewAudioStatus: "none" | "generating" | "done" | "failed";
+  interviewScript: string | null;
   processedAt: string | null;
 }
 
@@ -33,5 +37,19 @@ export interface ProcessBlogResponse {
 /** Response from GET /api/blogs/:id/audio */
 export interface GetAudioResponse {
   audioUrl: string | null;
-  script: string | null; // fallback text if no audio
+  audioStatus: "none" | "generating" | "done" | "failed";
+  script: string | null;
+}
+
+/** Response from GET /api/blogs/:id/interview */
+export interface GetInterviewResponse {
+  interviewAudioUrl: string | null;
+  interviewAudioStatus: "none" | "generating" | "done" | "failed";
+  interviewScript: string | null;
+}
+
+/** One parsed segment of an interview script */
+export interface InterviewSegment {
+  speaker: "JANE" | "AUTHOR";
+  text: string;
 }

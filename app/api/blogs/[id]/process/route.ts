@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveDbUser, errorResponse } from "@/src/utils/api-helpers";
 import { processBlog } from "@/src/services/summarisation";
-import { generateAudio, storeAudioUrl } from "@/src/services/audio";
+import { generateAudio } from "@/src/services/audio";
 import { getSummary } from "@/src/models/summarisation";
 import { logger } from "@/src/utils/logger";
 
@@ -11,21 +11,21 @@ import { logger } from "@/src/utils/logger";
  * Runs: content fetch → summary → keywords → learning short → optional audio.
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
   const blogId = params.id;
+  const force = req.nextUrl.searchParams.get("force") === "true";
 
   try {
-    const row = await processBlog(blogId);
+    const row = await processBlog(blogId, force);
 
-    // Attempt audio generation (no-op if TTS not configured)
+    // Fire-and-forget audio generation — client polls GET /api/blogs/:id/audio for status
     if (row.learningShort && !row.audioUrl) {
-      const audioUrl = await generateAudio(row.learningShort, blogId);
-      if (audioUrl) await storeAudioUrl(blogId, audioUrl);
+      void generateAudio(row.learningShort, blogId);
     }
 
     logger.info({ userId: user.id, blogId, status: row.status }, "Blog processed");

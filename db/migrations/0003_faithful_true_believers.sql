@@ -1,0 +1,1 @@
+ALTER TABLE "blog_summaries" ADD COLUMN "audio_status" text DEFAULT 'none';

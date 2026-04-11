@@ -31,6 +31,11 @@ Description   : A blog scanner across popular blog sites that suggests blogs bas
 | 5 | Recurring Learn Workflow (every 3 days) | PLANNED |
 | 6 | Monthly Knowledge Assessment & Benchmarking | PLANNED |
 | 7 | Home Dashboard (returning-user landing page) | DONE |
+| 8 | Podcast Audio Pipeline (OpenAI TTS + player) | DONE |
+| 9 | CI/CD Pipeline (GitHub Actions, secure AI app) | DONE |
+| 10 | Manual Blog Add (URL import + 404 validation) | DONE |
+| 11 | Interview Mode Podcast (two-voice Jane + Author) | DONE |
+| 12 | Public Podcast RSS Feed (Apple/Spotify distribution) | DONE |
 
 ---
 
@@ -271,6 +276,41 @@ Estimated token saving: ~[X]%
 - **HomeDashboard component**: `src/components/HomeDashboard.tsx` — client component with inline read/skip controls (same PATCH `/api/calendar` endpoint as ReadingCalendar); empty-state links to `/discovery`
 - **No new APIs or DB tables**: reuses `getWeek()`, `getProfile()`, and existing `/api/calendar` PATCH
 
+### Feature 8 — Podcast Audio Pipeline
+- **TTS provider**: OpenAI `tts-1-hd`, voice `onyx`; SDK via `openai` npm package; key via `OPENAI_API_KEY`
+- **Storage**: Vercel Blob (`@vercel/blob`); MP3 uploaded with `access: 'public'`; key via `BLOB_READ_WRITE_TOKEN`; path `audio/{blogId}.mp3`
+- **audio_status column**: `none | generating | done | failed` on `blog_summaries`; guards against duplicate generation
+- **Script prompt**: `writePodcastScript()` in `src/services/summarisation.ts` replaces `writeLearningShort()` — flowing prose, 350–450 words, hook opening, single takeaway
+- **Fire-and-forget pattern**: `POST /api/blogs/:id/process` triggers `void generateAudio()` — client polls `GET /api/blogs/:id/audio` for status changes
+- **Podcast player**: native `<audio>` element in `BlogSummaryCard.tsx`; play/pause, scrub bar, −15s rewind, speed selector (0.75×–1.5×); no third-party library
+- **Retry**: `POST /api/blogs/:id/audio` (new route) re-triggers generation; returns 409 if already generating
+
+### Feature 9 — CI/CD Pipeline
+- **CI workflow** (`.github/workflows/ci.yml`): triggers on PR → main; 6 jobs — `secret-scan` (TruffleHog, parallel), `audit` (npm audit --audit-level=high), then `lint`/`typecheck`/`test`/`build` (all depend on audit)
+- **Deploy workflow** (`.github/workflows/deploy.yml`): triggers on push → main only; sequential `build` → `deploy` (Vercel CLI `--prod`) → `smoke-test` (3 curl pings to `/api/health`; rolls back on failure)
+- **AI keys in CI**: intentionally absent from CI env — unit tests must mock all Anthropic/OpenAI/Tavily calls; build uses `stub` placeholder values
+- **Required GitHub Secrets**: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_APP_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+- **No AI keys in GitHub Secrets**: real AI keys live only in Vercel environment settings (not GitHub Secrets) — dev leak cannot drain production budget
+
+### Feature 12 — Public Podcast RSS Feed
+- **Public route**: `GET /api/podcast/rss.xml` has no auth guard — return early from resolveDbUser check is skipped; route uses `new Response()` not `NextResponse` (no Zod needed for GET-only public route)
+- **RSS XML**: Built as a plain string template (no XML library); CDATA wrapping on all user-generated text to avoid parse errors
+- **enclosure length="0"**: Valid workaround — avoids per-episode Blob HEAD requests; Apple/Spotify validate URL not byte size
+- **Cache-Control**: `public, max-age=3600` set on RSS response to reduce DB load from aggressive podcast crawlers
+- **Public page**: `app/podcast/page.tsx` is a server component with no `auth()` check — intentionally public; `PodcastPage` is a client component for clipboard API
+- **Episode ordering**: Done in service layer (`sort()` on processedAt DESC) rather than SQL to avoid Drizzle `orderBy` null-handling complexity
+- **Env vars**: `PODCAST_TITLE`, `PODCAST_DESCRIPTION`, `PODCAST_AUTHOR`, `PODCAST_IMAGE_URL`, `NEXT_PUBLIC_APP_URL` — all have sensible defaults so the feed works in dev without setup
+
+### Feature 11 — Interview Mode Podcast
+- **Two-voice TTS**: Jane (interviewer) uses OpenAI `shimmer` voice; Author uses `onyx` (same as solo podcast)
+- **Script format contract**: Claude outputs lines prefixed `JANE:` or `AUTHOR:`; `parseInterviewScript()` in `src/services/interview.ts` splits on `\n` and routes by prefix
+- **Sequential TTS calls**: Segments generated one at a time (not parallel) to preserve dialog order and avoid rate limits
+- **MP3 concatenation**: Raw `Buffer.concat(buffers)` — no ffmpeg needed; valid for browser playback
+- **Storage**: Vercel Blob at `audio/{blogId}-interview.mp3`; separate from solo podcast at `audio/{blogId}.mp3`
+- **State columns**: `interviewAudioStatus`, `interviewAudioUrl`, `interviewScript` on `blog_summaries`; same none→generating→done|failed state machine as audioStatus
+- **UI**: Dedicated "Interview" tab in BlogSummaryCard with separate audio ref + player state (purple accent); collapsible transcript via `<details>`
+- **Polling**: Client polls `GET /api/blogs/:id/interview` every 5s when status = generating (same pattern as podcast)
+
 ### Observability — OpenTelemetry
 - **SDK boot**: `instrumentation.ts` at root (Next.js hook) → calls `registerTelemetry()` in `src/utils/telemetry.ts` on server start
 - **Log-trace correlation**: `src/utils/logger.ts` injects `traceId` + `spanId` into every Pino record in production
@@ -313,3 +353,8 @@ npx vitest run tests/unit/onboarding-agent.test.ts
 | 2026-04-01 | Feature 2: Blog Discovery & Reading Calendar | Tavily search, Claude query gen, dedup, staging suggestions, weekly calendar |
 | 2026-04-02 | Feature 3: Blog Summarisation & Learning Shorts | Claude summary/keywords/script, Tavily extract, browser TTS, BlogSummaryCard |
 | 2026-04-04 | Feature 7: Home Dashboard | Returning-user landing page, profile-based routing, inline read/skip controls |
+| 2026-04-08 | Feature 8: Podcast Audio Pipeline | OpenAI TTS, Vercel Blob storage, podcast player with speed/scrub/rewind |
+| 2026-04-11 | Feature 10: Manual Blog Add | URL import with 404 validation, Tavily enrichment, duplicate detection, calendar scheduling |
+| 2026-04-11 | Feature 11: Interview Mode Podcast | Two-voice TTS (shimmer + onyx), Claude dialog script, MP3 concatenation, Interview tab in BlogSummaryCard |
+| 2026-04-11 | Feature 12: Public Podcast RSS Feed | RSS 2.0 + iTunes namespace, dynamic XML route, public /podcast page, zero-cost Apple/Spotify submission |
+| 2026-04-11 | Feature 9: CI/CD Pipeline | GitHub Actions: secret scan, audit, lint, typecheck, test, build on PR; Vercel deploy + smoke test on main |

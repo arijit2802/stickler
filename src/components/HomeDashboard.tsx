@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CalendarEntry, GetCalendarResponse } from "@/src/types/discovery";
+import { AddBlogModal } from "@/src/components/AddBlogModal";
 
 interface Props {
   initial: GetCalendarResponse;
@@ -28,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 export function HomeDashboard({ initial, userName }: Props) {
   const [entries, setEntries] = useState<CalendarEntry[]>(initial.entries);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   async function handleMark(entryId: string, status: "read" | "skipped") {
     try {
@@ -59,7 +61,7 @@ export function HomeDashboard({ initial, userName }: Props) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         <Link
           href="/discovery"
           className="flex flex-col items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors text-center"
@@ -67,6 +69,13 @@ export function HomeDashboard({ initial, userName }: Props) {
           <span className="text-xl mb-1">🔍</span>
           Find New Blogs
         </Link>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex flex-col items-center justify-center rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors text-center"
+        >
+          <span className="text-xl mb-1">🔗</span>
+          Add Article
+        </button>
         <Link
           href="/calendar"
           className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors text-center"
@@ -81,7 +90,16 @@ export function HomeDashboard({ initial, userName }: Props) {
           <span className="text-xl mb-1">✏️</span>
           Update Interests
         </Link>
+        <Link
+          href="/podcast"
+          className="flex flex-col items-center justify-center rounded-xl border border-purple-200 bg-purple-50 p-4 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors text-center"
+        >
+          <span className="text-xl mb-1">🎙</span>
+          Podcast
+        </Link>
       </div>
+
+      {showAddModal && <AddBlogModal onClose={() => setShowAddModal(false)} />}
 
       {/* Error */}
       {error && (

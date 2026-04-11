@@ -72,7 +72,8 @@ ${content.slice(0, 8000)}`,
   if (block.type !== "text") throw new Error("Unexpected Claude response");
 
   try {
-    const parsed = JSON.parse(block.text) as unknown;
+    const text = block.text.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+    const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) return (parsed as string[]).slice(0, 5);
     throw new Error("Not an array");
   } catch {
@@ -128,7 +129,8 @@ ${content.slice(0, 8000)}`,
   if (block.type !== "text") return [];
 
   try {
-    const parsed = JSON.parse(block.text) as unknown;
+    const text = block.text.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+    const parsed = JSON.parse(text) as unknown;
     if (!Array.isArray(parsed)) throw new Error("Not array");
     return (parsed as Keyword[]).slice(0, 7).filter(
       (k) => typeof k.term === "string" && typeof k.definition === "string"
@@ -139,14 +141,11 @@ ${content.slice(0, 8000)}`,
 }
 
 /**
- * Write a 2–3 minute conversational "Learning Short" script.
+ * Write a 2.5–3 minute podcast-style spoken narration script.
+ * Replaces writeLearningShort — same pipeline position, audio-first content.
  */
-export async function writeLearningShort(
-  content: string,
-  keywords: Keyword[]
-): Promise<string> {
+export async function writePodcastScript(content: string): Promise<string> {
   const client = getAnthropicClient();
-  const keyTerms = keywords.map((k) => k.term).join(", ");
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -154,7 +153,15 @@ export async function writeLearningShort(
     messages: [
       {
         role: "user",
-        content: `Write a 2-3 minute spoken script based on this article. Style: conversational, like a smart friend explaining it. Include: the main idea, why it matters, and one practical takeaway. No bullet points — flowing prose only. Key terms to weave in naturally: ${keyTerms}.
+        content: `Write a 2.5 to 3 minute spoken podcast script based on this article.
+Rules:
+- Flowing prose only — no bullet points, no headers, no markdown
+- Open with a hook that makes the listener want to keep listening (not "In this blog..." or "Today we'll discuss...")
+- Use natural speech patterns: short sentences, occasional rhetorical questions
+- Include one concrete analogy or real-world example
+- Close with a single actionable takeaway the listener can apply today
+- Target length: 350 to 450 words
+- Write for the ear, not the eye — avoid jargon without explanation
 
 Article:
 ${content.slice(0, 8000)}`,
@@ -171,15 +178,16 @@ ${content.slice(0, 8000)}`,
 /**
  * Full processing pipeline for a blog:
  * fetch content → summary → keywords → learning short → persist.
+ * Pass force=true to reprocess a blog that is already done (e.g. to fix stale data).
  * Returns the completed BlogSummary row.
  */
-export async function processBlog(blogId: string): Promise<BlogSummary> {
-  // Guard: skip if already processing or done
+export async function processBlog(blogId: string, force = false): Promise<BlogSummary> {
+  // Guard: skip if already processing or done (unless forced)
   const existing = await getSummary(blogId);
   if (existing?.status === "processing") {
     throw new Error("Blog is already being processed");
   }
-  if (existing?.status === "done") {
+  if (existing?.status === "done" && !force) {
     return existing;
   }
 
@@ -203,11 +211,11 @@ export async function processBlog(blogId: string): Promise<BlogSummary> {
 
   let output: SummaryOutput;
   try {
-    const [summaryBullets, keywords] = await Promise.all([
+    const [summaryBullets, keywords, learningShort] = await Promise.all([
       generateSummary(content),
       extractKeywords(content),
+      writePodcastScript(content),
     ]);
-    const learningShort = await writeLearningShort(content, keywords);
     output = { summaryBullets, keywords, learningShort };
   } catch (err) {
     logger.error({ err, blogId }, "Claude processing failed");
@@ -220,7 +228,7 @@ export async function processBlog(blogId: string): Promise<BlogSummary> {
     summaryBullets: output.summaryBullets,
     keywords: output.keywords,
     learningShort: output.learningShort,
-    audioUrl: null,
+    audioUrl: existing?.audioUrl ?? null, // preserve existing audio URL on reprocess
     status: "done",
     processedAt: new Date(),
   });

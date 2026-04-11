@@ -29,6 +29,10 @@ export async function GET(
           keywords: (summary.keywords as { term: string; definition: string }[]) ?? [],
           learningShort: summary.learningShort,
           audioUrl: summary.audioUrl,
+          audioStatus: (summary.audioStatus ?? "none") as GetSummaryResponse["audioStatus"],
+          interviewAudioUrl: summary.interviewAudioUrl,
+          interviewAudioStatus: (summary.interviewAudioStatus ?? "none") as GetSummaryResponse["interviewAudioStatus"],
+          interviewScript: summary.interviewScript,
           processedAt: summary.processedAt?.toISOString() ?? null,
         }
       : {
@@ -38,6 +42,10 @@ export async function GET(
           keywords: [],
           learningShort: null,
           audioUrl: null,
+          audioStatus: "none",
+          interviewAudioUrl: null,
+          interviewAudioStatus: "none",
+          interviewScript: null,
           processedAt: null,
         };
 
