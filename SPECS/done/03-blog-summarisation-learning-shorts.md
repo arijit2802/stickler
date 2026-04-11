@@ -1,8 +1,8 @@
 ---
 feature  : Blog Summarisation, Keywords & Learning Shorts
-status   : ACTIVE
+status   : DONE
 created  : 2026-03-21
-completed: —
+completed: 2026-04-02
 replaces : none
 ---
 
@@ -12,7 +12,7 @@ replaces : none
 For each confirmed blog in the reading calendar, automatically generate:
 1. A structured summary
 2. Key concepts with short definitions
-3. A "Learning Short" — a 2–3 minute audio-ready script (listenable while commuting)
+3. A "Learning Short" — a 5–10 minute audio-ready script (listenable while commuting)
 
 ---
 
@@ -32,7 +32,7 @@ For each confirmed blog in the reading calendar, automatically generate:
 3. Send to Claude API:
    a. Generate structured summary (3–5 bullet points)
    b. Extract 5–7 keywords with 1-sentence definitions
-   c. Write a 2–3 min "Learning Short" script (conversational tone)
+   c. Write a 5–10 min "Learning Short" script (conversational tone)
 4. Store outputs in DB
 5. Convert Learning Short script to audio via TTS (e.g. ElevenLabs or browser TTS)
 6. Store audio file URL

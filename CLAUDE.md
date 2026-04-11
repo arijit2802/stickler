@@ -25,11 +25,12 @@ Description   : A blog scanner across popular blog sites that suggests blogs bas
 | # | Feature | Status |
 |---|---|---|
 | 1 | User Onboarding Interview (agentic interest profiling) | DONE |
-| 2 | Agentic Blog Discovery & Reading Calendar | PLANNED |
-| 3 | Blog Summarisation, Keywords & Learning Shorts | PLANNED |
+| 2 | Agentic Blog Discovery & Reading Calendar | DONE |
+| 3 | Blog Summarisation, Keywords & Learning Shorts | DONE |
 | 4 | Blog Q&A and Feedback Loop | PLANNED |
 | 5 | Recurring Learn Workflow (every 3 days) | PLANNED |
 | 6 | Monthly Knowledge Assessment & Benchmarking | PLANNED |
+| 7 | Home Dashboard (returning-user landing page) | DONE |
 
 ---
 
@@ -68,6 +69,10 @@ SPECS/
   planned/      → Upcoming specs not yet in development
   done/         → Completed specs (never reference these)
   archived/     → Deprecated approaches (never reference these)
+
+BUGS/
+  open/         → Active defect reports (BUG-XXX-slug.md)
+  fixed/        → Resolved bugs (never reference these)
 
 .claude/
   commands/     → Custom slash commands
@@ -240,6 +245,32 @@ Estimated token saving: ~[X]%
 - **Logging**: Pino logger via `src/utils/logger.ts`; never use `console.log`
 - **Error handling**: All API errors return `{ error: string }` via `errorResponse()` helper
 
+### Feature 2 — Agentic Blog Discovery & Reading Calendar
+- **Discovery pipeline**: `runDiscovery(userId)` in `src/services/blog-discovery.ts` — generates queries via Claude → searches via Tavily → ranks/deduplicates → persists as `discovery_suggestions`
+- **Tavily client**: `@tavily/core` SDK; API key via `TAVILY_API_KEY` env var; `includeDomains` filter targets known blog sources
+- **Staging state**: Suggestions land in `discovery_suggestions` table with `status=pending` and 24h expiry; confirmed → `reading_calendar`, rejected → trigger replacement search
+- **Dedup**: `getSeenUrls(userId)` checks all URLs already in the user's reading calendar; new suggestions filtered against this set
+- **Fallback**: If Tavily returns < 3 results, broadens query to `topic1 OR topic2 blog` and retries once
+- **Calendar service**: `src/services/calendar.ts` — `confirmAndSchedule()`, `getWeek()`, `markStatus()`; calendar entries keyed by `scheduled_date` (DATE column)
+- **UI flow**: `/discovery` server component auto-runs discovery if no pending suggestions; on confirm → router.push(`/calendar`)
+- **Onboarding redirect**: After profile save, users redirect to `/discovery` (not `/dashboard`)
+
+### Feature 3 — Blog Summarisation, Keywords & Learning Shorts
+- **Processing pipeline**: `processBlog(blogId)` in `src/services/summarisation.ts` — Tavily extract → Claude (summary bullets, keywords, learning short) → `blog_summaries` table
+- **Content fetch**: Tavily `extract()` for full article; falls back to `rawContent` in `blogs` table if extract fails; marks `unprocessable` if < 100 chars
+- **Claude outputs**: 3 parallel-friendly calls — `generateSummary()`, `extractKeywords()`, `writeLearningShort()`; each retries once on JSON parse failure
+- **Audio**: `src/services/audio.ts` is a stub returning null (no TTS provider); frontend `BlogSummaryCard` uses browser `speechSynthesis` as fallback
+- **Status machine**: `none → processing → done | unprocessable` in `blog_summaries.status`; guard prevents duplicate concurrent runs
+- **Auto-trigger**: `POST /api/discovery/confirm` fires `processBlog()` for each confirmed blog as a fire-and-forget background call (non-blocking)
+- **UI**: `BlogSummaryCard` component with 3 tabs (Summary / Keywords / Learning Short) + browser TTS play button
+- **No new packages**: `@tavily/core` already installed from Feature 2; no ElevenLabs SDK added (not yet confirmed)
+
+### Feature 7 — Home Dashboard
+- **Root routing**: `app/page.tsx` checks `profile?.isConfirmed` — returning users go to `/home`, new users to `/onboarding`
+- **Home page**: `app/home/page.tsx` server component — guards auth + profile, fetches `getWeek()` server-side, no loading flash
+- **HomeDashboard component**: `src/components/HomeDashboard.tsx` — client component with inline read/skip controls (same PATCH `/api/calendar` endpoint as ReadingCalendar); empty-state links to `/discovery`
+- **No new APIs or DB tables**: reuses `getWeek()`, `getProfile()`, and existing `/api/calendar` PATCH
+
 ### Observability — OpenTelemetry
 - **SDK boot**: `instrumentation.ts` at root (Next.js hook) → calls `registerTelemetry()` in `src/utils/telemetry.ts` on server start
 - **Log-trace correlation**: `src/utils/logger.ts` injects `traceId` + `spanId` into every Pino record in production
@@ -279,3 +310,6 @@ npx vitest run tests/unit/onboarding-agent.test.ts
 | 2026-03-21 | Project init | CLAUDE.md created, scaffold generated, all 6 specs written |
 | 2026-03-21 | Feature 1: User Onboarding Interview | Implemented: Next.js 14, Drizzle ORM, NextAuth.js, Anthropic SDK, Zod |
 | 2026-03-23 | Observability | OpenTelemetry SDK, Pino log-trace correlation, /api/health endpoint |
+| 2026-04-01 | Feature 2: Blog Discovery & Reading Calendar | Tavily search, Claude query gen, dedup, staging suggestions, weekly calendar |
+| 2026-04-02 | Feature 3: Blog Summarisation & Learning Shorts | Claude summary/keywords/script, Tavily extract, browser TTS, BlogSummaryCard |
+| 2026-04-04 | Feature 7: Home Dashboard | Returning-user landing page, profile-based routing, inline read/skip controls |

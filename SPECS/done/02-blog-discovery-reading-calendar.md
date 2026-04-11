@@ -1,8 +1,8 @@
 ---
 feature  : Agentic Blog Discovery & Reading Calendar
-status   : ACTIVE
+status   : DONE
 created  : 2026-03-21
-completed: —
+completed: 2026-04-01
 replaces : none
 ---
 
@@ -38,7 +38,7 @@ After onboarding, an agentic workflow searches popular blog platforms for conten
 ```
 
 ### Blog Sources to Search
-- Medium, Substack, Dev.to, Hacker News, personal tech blogs (via Tavily)
+- Medium, Substack, Dev.to, Hacker News,OpenAI blog , Google Deepmind blog , Anthropic blog, Hugging face blogs, KD Nuggets, Daily dose of data sceince personal tech blogs (via Tavily)
 
 ---
 
