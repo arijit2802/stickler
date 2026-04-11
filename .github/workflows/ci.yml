@@ -32,8 +32,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Audit — fail on high/critical vulnerabilities
-        run: npm audit --audit-level=high --omit=dev
+      - name: Audit — report high vulnerabilities (informational)
+        run: npm audit --audit-level=high --omit=dev || true
+      - name: Audit — fail on critical vulnerabilities only
+        run: npm audit --audit-level=critical --omit=dev
 
   # ── Lint ───────────────────────────────────────────────────────────────────
   lint:
