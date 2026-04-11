@@ -1,14 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: [
-      "pino",
-      "pino-pretty",
-      "@opentelemetry/sdk-node",
-      "@opentelemetry/auto-instrumentations-node",
-    ],
-    instrumentationHook: true,
-  },
+  // Moved from experimental.serverComponentsExternalPackages in Next.js 15+
+  serverExternalPackages: [
+    "pino",
+    "pino-pretty",
+    "@opentelemetry/sdk-node",
+    "@opentelemetry/auto-instrumentations-node",
+  ],
 };
 
 export default nextConfig;
