@@ -10,12 +10,12 @@ import { logger } from "@/src/utils/logger";
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
-  const blogId = params.id;
+  const { id: blogId } = await params;
 
   try {
     const result = await getAudioUrl(blogId);
@@ -34,12 +34,12 @@ export async function GET(
  */
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
-  const blogId = params.id;
+  const { id: blogId } = await params;
 
   try {
     const summary = await getSummary(blogId);

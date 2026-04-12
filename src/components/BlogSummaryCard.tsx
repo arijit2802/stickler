@@ -105,16 +105,47 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
       const res = await fetch(url, { method: "POST" });
       const data = (await res.json()) as { status?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Processing failed");
-      if (data.status === "unprocessable") {
-        setError("This blog could not be processed (content unavailable).");
-        return;
-      }
-      const summaryRes = await fetch(`/api/blogs/${blogId}/summary`);
-      const summaryData = (await summaryRes.json()) as GetSummaryResponse;
-      setSummary(summaryData);
+
+      // Route now returns immediately with status: "processing" — poll until done
+      const processingState: GetSummaryResponse = {
+        blogId,
+        status: "processing",
+        summaryBullets: [],
+        keywords: [],
+        learningShort: null,
+        audioUrl: null,
+        audioStatus: "none",
+        interviewAudioUrl: null,
+        interviewAudioStatus: "none",
+        interviewScript: null,
+        processedAt: null,
+      };
+      setSummary((prev) => prev ? { ...prev, status: "processing" } : processingState);
+
+      const poll = setInterval(async () => {
+        try {
+          const summaryRes = await fetch(`/api/blogs/${blogId}/summary`);
+          const summaryData = (await summaryRes.json()) as GetSummaryResponse;
+          if (summaryData.status === "done" || summaryData.status === "unprocessable") {
+            clearInterval(poll);
+            setSummary(summaryData);
+            setLoading(false);
+            if (summaryData.status === "unprocessable") {
+              setError("Content could not be fetched for this article.");
+            }
+          }
+        } catch {
+          // keep polling on transient errors
+        }
+      }, 3000);
+
+      // Safety timeout — stop polling after 2 minutes
+      setTimeout(() => {
+        clearInterval(poll);
+        setLoading(false);
+      }, 120000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process blog");
-    } finally {
       setLoading(false);
     }
   }
@@ -229,8 +260,16 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
 
   if (summary.status === "processing") {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm text-gray-500">Processing… check back in a moment.</p>
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
+        <h3 className="font-semibold text-gray-900 line-clamp-2">
+          <a href={blogUrl} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600">
+            {blogTitle}
+          </a>
+        </h3>
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="animate-spin inline-block">⏳</span>
+          Generating summary… this takes about 30 seconds.
+        </div>
       </div>
     );
   }
@@ -289,13 +328,14 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
       {/* Tab content */}
       <div className="p-4">
         {tab === "summary" && (() => {
-          const isCorrupted = summary.summaryBullets.some((b) => b.trimStart().startsWith("```"));
-          if (isCorrupted || summary.summaryBullets.length === 0) {
+          const bullets = summary.summaryBullets ?? [];
+          const isCorrupted = bullets.some((b) => b.trimStart().startsWith("```"));
+          if (isCorrupted || bullets.length === 0) {
             return (
               <div className="space-y-3">
                 <p className="text-sm text-gray-400">Summary data is malformed. Please regenerate.</p>
                 <button
-                  onClick={() => handleProcess(true)}
+                  onClick={() => void handleProcess(true)}
                   disabled={loading}
                   className="text-sm px-3 py-1.5 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 disabled:opacity-50 transition-colors"
                 >
@@ -306,7 +346,7 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
           }
           return (
             <ul className="space-y-2">
-              {summary.summaryBullets.map((b, i) => (
+              {bullets.map((b, i) => (
                 <li key={i} className="flex gap-2 text-sm text-gray-700">
                   <span className="text-indigo-400 font-bold shrink-0">•</span>
                   <span>{b}</span>
@@ -317,11 +357,11 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
         })()}
 
         {tab === "keywords" && (
-          summary.keywords.length === 0 ? (
+          (summary.keywords ?? []).length === 0 ? (
             <div className="space-y-3">
               <p className="text-sm text-gray-400">No keywords extracted yet.</p>
               <button
-                onClick={() => handleProcess(true)}
+                onClick={() => void handleProcess(true)}
                 disabled={loading}
                 className="text-sm px-3 py-1.5 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 disabled:opacity-50 transition-colors"
               >
@@ -330,7 +370,7 @@ export function BlogSummaryCard({ blogId, blogTitle, blogUrl, initialSummary }: 
             </div>
           ) : (
             <dl className="space-y-3">
-              {summary.keywords.map((k, i) => (
+              {(summary.keywords ?? []).map((k, i) => (
                 <div key={i}>
                   <dt className="text-sm font-semibold text-gray-900">{k.term}</dt>
                   <dd className="text-sm text-gray-600">{k.definition}</dd>

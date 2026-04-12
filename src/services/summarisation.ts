@@ -184,7 +184,7 @@ ${content.slice(0, 8000)}`,
 export async function processBlog(blogId: string, force = false): Promise<BlogSummary> {
   // Guard: skip if already processing or done (unless forced)
   const existing = await getSummary(blogId);
-  if (existing?.status === "processing") {
+  if (existing?.status === "processing" && !force) {
     throw new Error("Blog is already being processed");
   }
   if (existing?.status === "done" && !force) {

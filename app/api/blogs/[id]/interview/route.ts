@@ -11,12 +11,12 @@ import type { GetInterviewResponse } from "@/src/types/summarisation";
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
-  const blogId = params.id;
+  const { id: blogId } = await params;
 
   try {
     const data = await getInterview(blogId);
@@ -39,12 +39,12 @@ export async function GET(
  */
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
-  const blogId = params.id;
+  const { id: blogId } = await params;
 
   try {
     const existing = await getInterviewStatus(blogId);
