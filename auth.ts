@@ -5,7 +5,6 @@ import { findUserByEmail } from "@/src/models/users";
 import { verifyPassword } from "@/src/utils/password";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
   providers: [
     Credentials({
       credentials: {
