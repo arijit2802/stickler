@@ -35,6 +35,7 @@ function buildRss(episodes: Awaited<ReturnType<typeof getPublishedEpisodes>>): s
     process.env.PODCAST_DESCRIPTION ??
     "AI-powered two-voice interviews with authors of the best tech articles.";
   const author = process.env.PODCAST_AUTHOR ?? "Stickler";
+  const email = process.env.PODCAST_EMAIL ?? "";
   const imageUrl = process.env.PODCAST_IMAGE_URL ?? "";
 
   const items = episodes
@@ -61,6 +62,10 @@ function buildRss(episodes: Awaited<ReturnType<typeof getPublishedEpisodes>>): s
     ? `<itunes:image href="${imageUrl}"/>`
     : "";
 
+  const ownerTag = email
+    ? `<itunes:owner><itunes:name>${cdata(author)}</itunes:name><itunes:email>${email}</itunes:email></itunes:owner>`
+    : "";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"
   xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
@@ -71,6 +76,7 @@ function buildRss(episodes: Awaited<ReturnType<typeof getPublishedEpisodes>>): s
     <description>${cdata(description)}</description>
     <language>en-us</language>
     <itunes:author>${cdata(author)}</itunes:author>
+    ${ownerTag}
     ${imageTag}
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
