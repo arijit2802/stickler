@@ -1,50 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveDbUser, errorResponse } from "@/src/utils/api-helpers";
 import { processBlog } from "@/src/services/summarisation";
-import { generateAudio, storeAudioUrl } from "@/src/services/audio";
-import { getSummary } from "@/src/models/summarisation";
+import { generateAudio } from "@/src/services/audio";
+import { getSummary, markProcessing } from "@/src/models/summarisation";
 import { logger } from "@/src/utils/logger";
 
 /**
  * POST /api/blogs/:id/process
- * Trigger summarisation pipeline for a blog.
- * Runs: content fetch → summary → keywords → learning short → optional audio.
+ * Trigger summarisation pipeline for a blog (fire-and-forget).
+ * Returns immediately with status: "processing".
+ * Client should poll GET /api/blogs/:id/summary for completion.
  */
 export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const user = await resolveDbUser();
   if (!user) return errorResponse("Unauthorized", 401);
 
-  const blogId = params.id;
+  const { id: blogId } = await params;
+  const force = req.nextUrl.searchParams.get("force") === "true";
 
   try {
-    const row = await processBlog(blogId);
+    const existing = await getSummary(blogId);
 
-    // Attempt audio generation (no-op if TTS not configured)
-    if (row.learningShort && !row.audioUrl) {
-      const audioUrl = await generateAudio(row.learningShort, blogId);
-      if (audioUrl) await storeAudioUrl(blogId, audioUrl);
-    }
-
-    logger.info({ userId: user.id, blogId, status: row.status }, "Blog processed");
-    return NextResponse.json({ blogId, status: row.status });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Processing failed";
-    logger.error({ err, userId: user.id, blogId }, "Blog processing error");
-
-    if (message.includes("already being processed")) {
+    // Block if already processing and not forced
+    if (existing?.status === "processing" && !force) {
       return errorResponse("Blog is already being processed", 409);
     }
-    if (message.includes("content could not be fetched") || message.includes("not found")) {
-      // Fetch final status from DB (was marked unprocessable)
-      const summary = await getSummary(blogId);
-      return NextResponse.json(
-        { blogId, status: summary?.status ?? "unprocessable" },
-        { status: 200 }
-      );
-    }
-    return errorResponse("Blog processing failed. Please try again.", 500);
+
+    // Mark as processing immediately so client can start polling
+    await markProcessing(blogId);
+
+    // Fire-and-forget — client polls GET /api/blogs/:id/summary
+    void (async () => {
+      try {
+        const row = await processBlog(blogId, force);
+        if (row.learningShort && !row.audioUrl) {
+          void generateAudio(row.learningShort, blogId);
+        }
+        logger.info({ userId: user.id, blogId, status: row.status }, "Blog processed");
+      } catch (err) {
+        logger.error({ err, userId: user.id, blogId }, "Blog processing error");
+      }
+    })();
+
+    return NextResponse.json({ blogId, status: "processing" });
+  } catch (err) {
+    logger.error({ err, userId: user.id, blogId }, "Failed to start processing");
+    return errorResponse("Failed to start processing", 500);
   }
 }

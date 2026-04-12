@@ -143,6 +143,13 @@ export const blogSummaries = pgTable("blog_summaries", {
     .default([]),
   learningShort: text("learning_short"),
   audioUrl: text("audio_url"),
+  // none | generating | done | failed
+  audioStatus: text("audio_status").default("none"),
+  // Two-voice interview podcast (Jane + Author)
+  interviewScript: text("interview_script"),
+  interviewAudioUrl: text("interview_audio_url"),
+  // none | generating | done | failed
+  interviewAudioStatus: text("interview_audio_status").default("none"),
   // none | processing | done | unprocessable
   status: text("status").default("none"),
   processedAt: timestamp("processed_at", { withTimezone: true }),

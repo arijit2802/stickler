@@ -78,11 +78,74 @@ export async function getBlogContent(
 }
 
 /**
- * Save the audio URL back to an existing summary row.
+ * Save the audio URL and mark audio_status as done.
  */
 export async function saveAudioUrl(blogId: string, audioUrl: string): Promise<void> {
   await db
     .update(blogSummaries)
-    .set({ audioUrl })
+    .set({ audioUrl, audioStatus: "done" })
+    .where(eq(blogSummaries.blogId, blogId));
+}
+
+/**
+ * Set the audio generation status for a blog summary.
+ */
+export async function setAudioStatus(
+  blogId: string,
+  audioStatus: "none" | "generating" | "done" | "failed"
+): Promise<void> {
+  await db
+    .update(blogSummaries)
+    .set({ audioStatus })
+    .where(eq(blogSummaries.blogId, blogId));
+}
+
+/**
+ * Get interview audio status, URL, and script for a blog.
+ */
+export async function getInterviewStatus(
+  blogId: string
+): Promise<{ interviewAudioUrl: string | null; interviewAudioStatus: string; interviewScript: string | null } | null> {
+  const [row] = await db
+    .select({
+      interviewAudioUrl: blogSummaries.interviewAudioUrl,
+      interviewAudioStatus: blogSummaries.interviewAudioStatus,
+      interviewScript: blogSummaries.interviewScript,
+    })
+    .from(blogSummaries)
+    .where(eq(blogSummaries.blogId, blogId))
+    .limit(1);
+  if (!row) return null;
+  return {
+    interviewAudioUrl: row.interviewAudioUrl,
+    interviewAudioStatus: row.interviewAudioStatus ?? "none",
+    interviewScript: row.interviewScript,
+  };
+}
+
+/**
+ * Save the interview audio URL, script, and mark status as done.
+ */
+export async function saveInterviewAudio(
+  blogId: string,
+  interviewAudioUrl: string,
+  interviewScript: string
+): Promise<void> {
+  await db
+    .update(blogSummaries)
+    .set({ interviewAudioUrl, interviewScript, interviewAudioStatus: "done" })
+    .where(eq(blogSummaries.blogId, blogId));
+}
+
+/**
+ * Set the interview audio generation status.
+ */
+export async function setInterviewAudioStatus(
+  blogId: string,
+  interviewAudioStatus: "none" | "generating" | "done" | "failed"
+): Promise<void> {
+  await db
+    .update(blogSummaries)
+    .set({ interviewAudioStatus })
     .where(eq(blogSummaries.blogId, blogId));
 }
