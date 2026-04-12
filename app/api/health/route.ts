@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { logger } from "@/src/utils/logger";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/health
  * Liveness + readiness check.
